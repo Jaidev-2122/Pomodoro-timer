@@ -4,6 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#14110f" />
+<!-- "Add to Home Screen" support: when launched from the homescreen on iOS
+     or Android, the app opens without browser chrome — which gives us real
+     fullscreen on iPhones, where the Fullscreen API doesn't work. -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Tempo" />
+<meta name="mobile-web-app-capable" content="yes" />
 <title>Tempo — Focus Timer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -131,6 +138,7 @@ header{
   display:flex; align-items:flex-start; justify-content:space-between;
   gap:18px; padding:22px clamp(16px,4vw,52px);
   max-width:1340px; margin:0 auto; flex-wrap:wrap;
+  position:relative;          /* so .header-actions can position:absolute on mobile */
 }
 .brand{ display:flex; align-items:baseline; gap:12px; }
 .brand h1{
@@ -639,11 +647,24 @@ body.fs .wc-big-offset{ font-size: clamp(.85rem, 1.6vmin, 1.1rem); padding: 5px 
 /* ============================================================
    FULLSCREEN MODE
 
-   Triggered by JS adding `.fs` to <body> (only when the browser
-   has actually entered fullscreen via the Fullscreen API). Hides
-   chrome and blows up the ring + digits + minimal controls so
-   only the focus instrument is visible.
+   Triggered by JS adding `.fs` to <body>. This works two ways:
+
+   1. On platforms that support the Fullscreen API (desktop Chrome,
+      Edge, Firefox, Safari, plus Android Chrome) the real API is
+      called too, hiding the entire browser chrome.
+
+   2. On iOS Safari and any other environment where the Fullscreen
+      API fails (it doesn't support fullscreen on non-video
+      elements), the `.fs` class alone delivers a pseudo-fullscreen
+      view: the timer covers the entire visible viewport as a fixed
+      overlay, hiding everything else.
+
+   Either way, the visual result is the same.
    ============================================================ */
+
+/* Lock the body so the user can't scroll behind the fullscreen view
+   on mobile, and so iOS's bounce-scroll doesn't break the illusion. */
+body.fs{ overflow:hidden; }
 
 body.fs header,
 body.fs .sidebar,
@@ -656,12 +677,22 @@ body.fs .laps,
 body.fs .floater,
 body.fs #bg-scrim{ display:none !important; }
 
-body.fs .wrap{ grid-template-columns: 1fr; max-width:none; padding:0; }
+/* The .wrap becomes a fixed full-viewport overlay so it covers the page
+   completely on mobile too (where the address bar can shift around). */
+body.fs .wrap{
+  position:fixed; inset:0;
+  grid-template-columns: 1fr; max-width:none; padding:0;
+  min-height:100vh; min-height:100dvh;
+  z-index:100;
+}
 body.fs .timer-card{
   min-height:100vh; min-height:100dvh; border:none; border-radius:0;
   background:transparent; backdrop-filter:none; box-shadow:none;
   display:flex; flex-direction:column; justify-content:center; align-items:center;
   padding: 0 24px;
+  /* Respect iOS safe areas so content doesn't sit under the notch / home bar */
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 body.fs .timer-card::before{ display:none; }
 body.fs .ring-wrap{ width: min(78vmin, 720px); margin: 0 auto 30px; }
@@ -670,15 +701,21 @@ body.fs .ring-sub{ font-size: 1.15rem; }
 body.fs .phase-label{ font-size: 1.15rem; margin-bottom: 18px; }
 body.fs .controls{ margin-top: 30px; }
 body.fs .btn-primary{ font-size: 1.2rem; padding: 18px 64px; }
+
 .fs-exit{
-  position:fixed; top: 24px; right: 24px; z-index:1000; display:none;
+  position:fixed; z-index:1001;
+  /* env() pushes the button below the iOS notch when one is present */
+  top: max(20px, env(safe-area-inset-top, 20px));
+  right: max(20px, env(safe-area-inset-right, 20px));
   background:rgba(20,17,15,0.7); color:var(--ink); border:1px solid var(--line);
-  border-radius:99px; padding:10px 18px; font-family:'Libre Baskerville',serif;
-  font-size:.9rem; cursor:pointer; backdrop-filter:blur(10px);
+  border-radius:99px; padding:11px 20px; font-family:'Libre Baskerville',serif;
+  font-size:.95rem; cursor:pointer; backdrop-filter:blur(10px);
+  min-height: 44px;       /* iOS Human Interface Guidelines minimum tap target */
   display:none; align-items:center; gap:8px;
 }
 body.fs .fs-exit{ display:inline-flex; }
 .fs-exit:hover{ background:rgba(20,17,15,0.9); color:var(--primary); }
+.fs-exit:active{ transform:scale(0.96); }
 .fs-exit svg{ width:14px; height:14px; }
 
 /* ============================================================
@@ -704,7 +741,19 @@ body.fs .fs-exit{ display:inline-flex; }
   .floater{ left:10px; right:10px; bottom:10px; width:auto; }
   footer{ padding:0 16px 24px; }
   body.fs .timer-card{ padding:0 16px; }
-  .fs-exit{ top: 14px; right: 14px; padding:9px 14px; font-size:.84rem; }
+  /* Fullscreen on mobile: scale the digits down a touch so HH:MM:SS in the
+     World Clock always fits. */
+  body.fs .display{ font-size: clamp(3rem, 15vmin, 6.5rem); }
+  body.fs .wc-big-time{ font-size: clamp(2.4rem, 13vmin, 5rem); }
+  body.fs .wc-big-clock{ width: min(82vmin, 500px); }
+}
+
+/* The in-page "Keep visible on other tabs" banner relies on Document
+   Picture-in-Picture, which is desktop-Chromium-only. Hide it on touch
+   devices and narrow viewports to avoid suggesting a feature that won't
+   work. (The pipSupported() JS check also hides it, so this is belt-and-braces.) */
+@media (max-width:620px), (pointer:coarse){
+  .fl-pop{ display:none !important; }
 }
 @media(prefers-reduced-motion:reduce){
   *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
@@ -1641,24 +1690,44 @@ function closeDrawer(){ el("#drawer").classList.remove("open"); el("#scrim").cla
 /* ============================================================
    FULLSCREEN
 
-   Uses the Fullscreen API. We listen for `fullscreenchange` to
-   know when the user has entered or exited (either through our
-   button or via the Escape key / browser UI), and apply the
-   `.fs` class on <body> accordingly.
+   The `.fs` class on <body> is the source of truth. We attempt the
+   real Fullscreen API in addition, but don't depend on it — that's
+   what makes this work on iOS Safari, which doesn't allow the API
+   on non-video elements. There, only the CSS class applies, but
+   the pseudo-fullscreen overlay still feels like fullscreen.
+
+   For true browser-chrome-hidden fullscreen on iOS, the user can
+   add Tempo to their home screen; the meta tags at the top of
+   <head> make that launch as a standalone webapp.
    ============================================================ */
 
 function enterFs(){
+  document.body.classList.add("fs");
   const r = document.documentElement;
-  if(r.requestFullscreen) r.requestFullscreen().catch(()=>{});
-  else if(r.webkitRequestFullscreen) r.webkitRequestFullscreen();
+  // Try the real Fullscreen API — works on desktop and Android.
+  // Catches any rejection silently so iOS Safari (where this rejects)
+  // doesn't surface an error.
+  try{
+    if(r.requestFullscreen) r.requestFullscreen().catch(()=>{});
+    else if(r.webkitRequestFullscreen) r.webkitRequestFullscreen();
+  }catch(e){}
 }
 function exitFs(){
-  if(document.exitFullscreen) document.exitFullscreen();
-  else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+  document.body.classList.remove("fs");
+  try{
+    if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+    else if(document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }catch(e){}
 }
+// Keep our pseudo-fullscreen in sync when the user exits real fullscreen
+// via Escape or the browser's own UI. (On iOS this never fires because
+// we never enter real fullscreen, so the class is unaffected — exactly
+// what we want.)
 function onFsChange(){
-  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  document.body.classList.toggle("fs", isFs);
+  const realFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if(!realFs && document.body.classList.contains("fs")){
+    document.body.classList.remove("fs");
+  }
 }
 
 /* ============================================================
