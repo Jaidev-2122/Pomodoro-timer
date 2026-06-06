@@ -11,6 +11,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Tempo" />
 <meta name="mobile-web-app-capable" content="yes" />
+<!-- PWA: links to the web manifest. The manifest declares Tempo's name,
+     icons, colours, and "standalone" display mode. Combined with the
+     service worker (registered at the bottom of <body>), this is what
+     lets Tempo work offline and be installed to the home screen. -->
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <title>Tempo — Focus Timer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1823,5 +1829,38 @@ function init(){
 }
 init();
 </script>
+
+<!-- ================================================================
+     PWA / OFFLINE SUPPORT
+     Registers the service worker that caches Tempo for offline use.
+     After the first successful visit (any connection — wifi or data),
+     the app works permanently offline. Skipped in dev environments
+     that lack a service worker context (e.g. opening via file://).
+     ================================================================ -->
+<script>
+if ('serviceWorker' in navigator) {
+  // Wait for the page to settle so the service worker registration
+  // doesn't compete with the initial paint.
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then((reg) => {
+        // When a new version of the service worker is found, the
+        // "updatefound" event fires. We don't need to do anything
+        // intrusive — the next reload will pick up the new version
+        // automatically — but we could surface an update toast here
+        // in the future if we wanted to.
+        reg.addEventListener('updatefound', () => {
+          // Optional: console.log('New Tempo version available; will activate on next load.');
+        });
+      })
+      .catch(() => {
+        // Registration failed — typically because the page is being
+        // served over file:// rather than http(s)://. Tempo still
+        // works in that case, just without offline support.
+      });
+  });
+}
+</script>
+
 </body>
 </html>
