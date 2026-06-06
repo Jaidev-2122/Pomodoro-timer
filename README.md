@@ -4,9 +4,9 @@ A calm, editorial focus timer for the browser. Pomodoro, custom countdowns, a st
 
 ## Live demo
 
+After deploying (see below), drop your URL here:
 
-
-> https://pomodoro-timer21.vercel.app/
+> https://your-tempo-app.vercel.app
 
 ## What it does
 
@@ -30,13 +30,20 @@ A calm, editorial focus timer for the browser. Pomodoro, custom countdowns, a st
 
 **Statistics** — Completed Pomodoros, accumulated focus time, and a day-streak counter that survives across sessions. Reset whenever you like.
 
+**Works offline (PWA)** — On first visit (with any connection — wifi or data), Tempo caches itself in your browser. After that it runs from cache: open it on the subway, on a plane, with no signal, anywhere. The browser may even prompt you to install it as a real app. On iOS, tap Share → "Add to Home Screen" for the same effect.
+
 **Extras** — A soft chime and desktop notification when a session ends, a live countdown in the browser tab title, and keyboard shortcuts (`Space` to start/pause, `R` to reset). The app is fully responsive down to phone screens, respects `prefers-reduced-motion`, leaves pinch-zoom enabled, and uses 48px+ touch targets throughout.
 
 ## Repository contents
 
 ```
-├── index.html      ← the entire app
-├── vercel.json     ← deployment config + cache headers
+├── index.html                ← the entire app
+├── sw.js                     ← service worker (offline caching)
+├── manifest.webmanifest      ← PWA manifest (name, icons, theme)
+├── icon-192.png              ← 192×192 app icon
+├── icon-512.png              ← 512×512 app icon
+├── icon-maskable.png         ← 512×512 maskable variant
+├── vercel.json               ← deployment config + cache headers
 ├── .gitignore
 ├── LICENSE
 └── README.md

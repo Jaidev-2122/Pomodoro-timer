@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Tempo Widget</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* The widget is a frameless transparent window. The body itself is
+   transparent; the visible card sits inside with rounded corners and
+   a backdrop blur. The whole window is draggable via -webkit-app-region. */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:transparent;overflow:hidden;}
+body{
+  font-family:'Libre Baskerville',Georgia,serif;
+  color:#f4ece4;
+  -webkit-font-smoothing:antialiased;
+}
+
+.card{
+  position:absolute; inset:8px;
+  background:rgba(20,17,15,0.94);
+  border:1px solid rgba(255,244,235,0.10);
+  border-radius:14px;
+  backdrop-filter:blur(18px) saturate(140%);
+  -webkit-app-region:drag;          /* whole card is the drag handle */
+  display:flex; flex-direction:column;
+  padding:12px 14px;
+  box-shadow:0 18px 40px -16px rgba(0,0,0,0.85);
+}
+
+/* But buttons and clickable things must NOT be drag regions. */
+button{
+  -webkit-app-region:no-drag;
+  font-family:inherit;
+  cursor:pointer;
+}
+
+.head{
+  display:flex; align-items:center; gap:8px; margin-bottom:8px;
+}
+.dot{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--accent,#4f9d8a);
+}
+.dot.running{ animation:pulse 1.6s ease-in-out infinite; }
+@keyframes pulse{
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%    { transform:scale(1.6); opacity:.5; }
+}
+.label{
+  font-style:italic; font-size:.82rem; color:#7c7269; flex:1;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.close{
+  background:none; border:none; color:#7c7269;
+  font-size:1rem; padding:2px 6px; border-radius:5px;
+  line-height:1;
+}
+.close:hover{ color:#e0775e; }
+
+.time{
+  font-family:'DM Mono',monospace; font-weight:500;
+  font-size:2rem; letter-spacing:-.02em; line-height:1;
+  color:#f4ece4; margin-bottom:8px;
+  font-variant-numeric:tabular-nums;
+}
+
+.progress{
+  height:4px; background:rgba(255,255,255,0.08);
+  border-radius:99px; overflow:hidden; margin-bottom:10px;
+}
+.progress > div{
+  height:100%; width:100%;
+  background:var(--accent,#e0775e);
+  border-radius:99px;
+  transform-origin:left;
+  transition:transform .25s linear;
+}
+
+.controls{
+  display:flex; gap:6px; margin-top:auto;
+}
+.controls button{
+  flex:1; padding:9px 6px;
+  border-radius:8px; border:1px solid rgba(255,244,235,0.10);
+  background:rgba(255,255,255,0.04); color:#f4ece4;
+  font-family:'Libre Baskerville',serif; font-size:.82rem;
+  transition:background .15s ease;
+  min-height:36px;
+}
+.controls button:hover{
+  background:rgba(255,255,255,0.08);
+}
+.controls .primary{
+  background:var(--accent,#e0775e);
+  color:#1b1714;
+  border-color:transparent;
+  font-weight:700;
+}
+.controls .primary:hover{
+  filter:brightness(1.08);
+}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <span class="dot" id="dot"></span>
+      <span class="label" id="label">Focus</span>
+      <button class="close" id="close" aria-label="Close widget" title="Hide widget">✕</button>
+    </div>
+    <div class="time" id="time">25:00</div>
+    <div class="progress"><div id="progress"></div></div>
+    <div class="controls">
+      <button id="reset">Reset</button>
+      <button class="primary" id="start">Pause</button>
+      <button id="aux">Skip</button>
+    </div>
+  </div>
+
+<script>
+// The widget runs in its own renderer process and talks to main.js
+// via the preload-exposed electronAPI. It receives state pushes and
+// sends actions back up.
+
+const dot   = document.getElementById('dot');
+const label = document.getElementById('label');
+const time  = document.getElementById('time');
+const prog  = document.getElementById('progress');
+const startBtn = document.getElementById('start');
+const resetBtn = document.getElementById('reset');
+const auxBtn   = document.getElementById('aux');
+const closeBtn = document.getElementById('close');
+
+let lastMode = 'pomodoro';
+let lastRunning = false;
+
+// Apply incoming timer state to the UI.
+window.electronAPI.onState((state) => {
+  if (!state) return;
+
+  lastMode = state.mode || lastMode;
+  lastRunning = !!state.running;
+
+  // The accent colour is sent up from the renderer so the widget
+  // matches the user's chosen palette.
+  if (state.accent) {
+    document.documentElement.style.setProperty('--accent', state.accent);
+  }
+
+  label.textContent = state.label || 'Focus';
+  time.textContent  = state.timeStr || '--:--';
+  dot.classList.toggle('running', lastRunning);
+  startBtn.textContent = lastRunning ? 'Pause' : 'Start';
+
+  // Aux button shows "+1 min" for the custom timer and "Lap" for stopwatch.
+  if (lastMode === 'timer')        auxBtn.textContent = '+1 min';
+  else if (lastMode === 'stopwatch') auxBtn.textContent = 'Lap';
+  else                              auxBtn.textContent = 'Skip';
+
+  // Progress bar uses 0–1 ratio sent up from main.
+  const ratio = typeof state.progress === 'number' ? state.progress : 1;
+  prog.style.transform = `scaleX(${Math.max(0, Math.min(1, ratio))})`;
+});
+
+// Forward button clicks back to the main app via main.js.
+startBtn.addEventListener('click', () => window.electronAPI.sendAction('toggle'));
+resetBtn.addEventListener('click', () => window.electronAPI.sendAction('reset'));
+auxBtn  .addEventListener('click', () => window.electronAPI.sendAction(
+  lastMode === 'stopwatch' ? 'lap' : (lastMode === 'timer' ? 'addMinute' : 'skip')
+));
+closeBtn.addEventListener('click', () => window.electronAPI.closeWidget());
+</script>
+</body>
+</html>
