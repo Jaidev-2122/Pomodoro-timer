@@ -6,7 +6,7 @@ A calm, editorial focus timer for the browser. Pomodoro, custom countdowns, a st
 
 After deploying (see below), drop your URL here:
 
-> https://your-tempo-app.vercel.app
+> https://pomodoro-timer21.vercel.app
 
 ## What it does
 
