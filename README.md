@@ -51,33 +51,6 @@ After deploying (see below), drop your URL here:
 
 That's it. No `node_modules`, no build pipeline, no environment variables.
 
-## Deploying to Vercel
-
-There are two equally easy paths. Pick whichever you prefer.
-
-### Option A — through the Vercel dashboard (recommended)
-
-1. **Push this repo to GitHub.** Create an empty repository on GitHub, then in this folder run:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/<your-repo>.git
-   git push -u origin main
-   ```
-
-2. **Import the repo on Vercel.** Go to <https://vercel.com/new>, sign in with GitHub, and select your repo. Vercel will detect this as a static project automatically.
-
-3. **Accept the defaults.** No framework preset, no build command, no output directory. Just click Deploy.
-
-About thirty seconds later you'll get a `.vercel.app` URL. Every future `git push` to `main` re-deploys automatically.
-
-### Option B — through the Vercel CLI
-
-1. Install the CLI once: `npm i -g vercel`
-2. From this folder, run `vercel`. The first time it asks a few questions; defaults are fine.
-3. To go straight to a production URL, run `vercel --prod`.
 
 ### Custom domain
 
